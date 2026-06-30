@@ -6,3 +6,4 @@ langgraph
 python-dotenv
 duckduckgo-search
 ddgs
+streamlit

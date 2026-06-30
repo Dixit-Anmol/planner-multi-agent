@@ -43,12 +43,11 @@ render_hero()
 st.markdown('<div class="input-card fade-in delay-1">', unsafe_allow_html=True)
 st.markdown('<div class="input-label">What would you like to know?</div>', unsafe_allow_html=True)
 
-# Goal Input Field
-user_goal = st.text_area(
+# Goal Input Field (using text_input so pressing Enter triggers search)
+user_goal = st.text_input(
     label="Goal Input Area",
     value=default_query,
     placeholder="Ask anything...",
-    height=120,
     label_visibility="collapsed"
 )
 
@@ -61,14 +60,26 @@ with col_right:
 render_suggestion_chips()
 st.markdown('</div>', unsafe_allow_html=True)
 
+# Track if we should run the search
+if "last_run_query" not in st.session_state:
+    st.session_state["last_run_query"] = ""
+
+should_run = False
+query_to_run = ""
+
+if submit_btn and user_goal.strip():
+    query_to_run = user_goal.strip()
+    should_run = True
+elif user_goal.strip() and user_goal.strip() != st.session_state["last_run_query"]:
+    query_to_run = user_goal.strip()
+    should_run = True
+elif default_query.strip() and not st.session_state["last_run_query"]:
+    query_to_run = default_query.strip()
+    should_run = True
+
 # ─── Main Execution Workflow ──────────────────────────────────────────────────
-if submit_btn or default_query:
-    query_to_run = user_goal.strip() if submit_btn else default_query.strip()
-    
-    if not query_to_run:
-        st.error("⚠️ Please enter a question or query.")
-        st.stop()
-        
+if should_run:
+    st.session_state["last_run_query"] = query_to_run
     st.markdown('<div class="spacer-lg"></div>', unsafe_allow_html=True)
     
     # Progress placeholders
@@ -104,6 +115,22 @@ if submit_btn or default_query:
         
         # Display Results
         if final_state:
+            # HTML Anchor & JS scroll to response
+            st.markdown(
+                """
+                <div id="response-section"></div>
+                <script>
+                    setTimeout(function() {
+                        var el = window.parent.document.getElementById("response-section");
+                        if (el) {
+                            el.scrollIntoView({behavior: "smooth", block: "start"});
+                        }
+                    }, 100);
+                </script>
+                """,
+                unsafe_allow_html=True
+            )
+
             st.markdown('<div class="result-card fade-in">', unsafe_allow_html=True)
             
             # Header actions: Title, Download & Share
@@ -120,7 +147,7 @@ if submit_btn or default_query:
             )
             
             # Action Buttons Row
-            btn_col1, btn_col2, btn_col3 = st.columns([6, 1, 1])
+            btn_col1, btn_col2, btn_col3 = st.columns([6, 1.2, 1.2])
             with btn_col2:
                 combined_text = "\n\n".join(
                     f"### Task: {t}\n{r}" 

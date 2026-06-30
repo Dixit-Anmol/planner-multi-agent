@@ -44,3 +44,41 @@ def run_workflow(goal: str) -> dict:
 
     final_state = app.invoke(initial_state)
     return final_state
+
+
+def run_workflow_generator(goal: str):
+    """
+    Yields (status_message, progress_percentage, state_so_far)
+    so the Streamlit app can display step-by-step progress updates.
+    """
+    app = build_graph()
+    
+    initial_state: AgentState = {
+        "goal": goal,
+        "tasks": [],
+        "results": [],
+        "critique": "",
+        "approved": False,
+        "iterations": 0,
+    }
+    
+    yield "🧠 Understanding your question...", 15, None
+    yield "📋 Planning the best approach...", 30, None
+    
+    current_state = initial_state
+    for event in app.stream(initial_state):
+        node_name = list(event.keys())[0]
+        state_update = event[node_name]
+        current_state = {**current_state, **state_update}
+        
+        if node_name == "planner":
+            yield "🌐 Researching reliable sources...", 50, current_state
+        elif node_name == "executor":
+            yield "🤖 Generating answer...", 75, current_state
+        elif node_name == "verifier":
+            if not current_state["approved"] and current_state["iterations"] < 3:
+                yield f"✅ Verifying quality (Refining answers, iteration {current_state['iterations']})...", 85, current_state
+            else:
+                yield "✨ Finalizing response...", 95, current_state
+                
+    yield "✨ Done", 100, current_state

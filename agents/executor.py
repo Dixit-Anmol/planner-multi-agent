@@ -9,7 +9,7 @@ from agents.state import AgentState, get_llm, get_search
 def executor(state: AgentState) -> AgentState:
     """Executes each task, optionally using DuckDuckGo web search for context."""
     llm = get_llm()
-    search = get_search()
+    search_tool = get_search()
 
     results = []
     critique_ctx = ""
@@ -28,7 +28,7 @@ def executor(state: AgentState) -> AgentState:
         # Try web search for research tasks
         search_ctx = ""
         try:
-            search_result = search.run(task[:100])
+            search_result = search_tool.run(task[:100])
             search_ctx = (
                 f"\n\nWeb search result for context: \n{search_result[:800]}"
             )
@@ -46,3 +46,4 @@ def executor(state: AgentState) -> AgentState:
         print(f"  Result: {result[:200]}...")
 
     return {**state, "results": results, "iterations": state["iterations"] + 1}
+

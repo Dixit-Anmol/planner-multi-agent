@@ -1,219 +1,191 @@
 """
-Planner Multi-Agent System — Streamlit Application
-====================================================
-A professional UI for the LangGraph-based Planner → Executor → Verifier
-multi-agent workflow.
+Planner Multi-Agent System — Premium Streamlit UI
+===================================================
+A polished, consumer-facing AI search and research experience.
 """
 
 import streamlit as st
-from agents.workflow import run_workflow
+import time
+from styles import get_css
+from components import (
+    render_navbar,
+    render_hero,
+    render_suggestion_chips,
+    render_progress_view,
+    render_disclaimer,
+    render_footer,
+)
+from agents.workflow import run_workflow_generator
 
-# ─── Page Config ──────────────────────────────────────────────────────────────
+# ─── Page & Style Config ──────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Planner Multi-Agent System",
-    page_icon="🤖",
+    page_title="Planner Multi-Agent",
+    page_icon="✨",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
-# ─── Custom CSS ───────────────────────────────────────────────────────────────
-st.markdown("""
-<style>
-    .main-title {
-        font-size: 2.4rem;
-        font-weight: 700;
-        background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 0;
-    }
-    .subtitle {
-        font-size: 1.1rem;
-        color: #94a3b8;
-        margin-top: 0;
-    }
-    .agent-header {
-        font-size: 1.1rem;
-        font-weight: 600;
-        padding: 0.3rem 0;
-    }
-    .workflow-box {
-        background: #1e1e2e;
-        border: 1px solid #333;
-        border-radius: 12px;
-        padding: 1rem;
-        font-family: monospace;
-        font-size: 0.85rem;
-        line-height: 1.8;
-        color: #e2e8f0;
-    }
-    .stExpander {
-        border: 1px solid #333 !important;
-        border-radius: 8px !important;
-    }
-</style>
-""", unsafe_allow_html=True)
+# Inject Premium Styles
+st.markdown(get_css(), unsafe_allow_html=True)
 
+# Navigation Bar
+render_navbar()
 
-# ─── Sidebar ──────────────────────────────────────────────────────────────────
-with st.sidebar:
-    st.markdown("## 🤖 Project Info")
-    st.markdown(
-        "A **LangGraph** multi-agent system where three AI agents collaborate "
-        "to research any topic autonomously."
-    )
+# ─── Query Param Handling ─────────────────────────────────────────────────────
+# If user clicked a suggestion chip, prefill the query
+query_params = st.query_params
+default_query = query_params.get("query", "")
 
-    st.divider()
+# ─── Hero Section ─────────────────────────────────────────────────────────────
+render_hero()
 
-    st.markdown("### 🛠️ Technologies")
-    tech_items = [
-        ("🧠", "LangGraph", "Agent orchestration"),
-        ("⚡", "Groq Llama-3.1-8B", "LLM inference"),
-        ("🔍", "DuckDuckGo Search", "Live web data"),
-        ("🔗", "LangChain Core", "Prompt framework"),
-        ("🐍", "Python 3.12", "Runtime"),
-        ("🚀", "GitHub Actions", "CI/CD"),
-    ]
-    for icon, name, desc in tech_items:
-        st.markdown(f"{icon} **{name}** — {desc}")
+# ─── Input Container ──────────────────────────────────────────────────────────
+st.markdown('<div class="input-card fade-in delay-1">', unsafe_allow_html=True)
+st.markdown('<div class="input-label">What would you like to know?</div>', unsafe_allow_html=True)
 
-    st.divider()
-
-    st.markdown("### 📊 Workflow")
-    st.markdown("""
-<div class="workflow-box">
-  👤 User Goal<br>
-  &nbsp;&nbsp;&nbsp;↓<br>
-  📋 <b>Planner Agent</b><br>
-  &nbsp;&nbsp;&nbsp;↓ (up to 5 tasks)<br>
-  ⚙️ <b>Executor Agent</b> + 🔍 Search<br>
-  &nbsp;&nbsp;&nbsp;↓<br>
-  ✅ <b>Verifier Agent</b> (LLM Judge)<br>
-  &nbsp;&nbsp;&nbsp;↓<br>
-  Approved? → 🏁 <b>Done</b><br>
-  Rejected? → ↩️ Back to Executor
-</div>
-""", unsafe_allow_html=True)
-
-    st.divider()
-
-    # Show iteration count after a run
-    if "final_state" in st.session_state:
-        fs = st.session_state["final_state"]
-        col1, col2 = st.columns(2)
-        col1.metric("Iterations", fs["iterations"])
-        col2.metric("Status", "✅ Approved" if fs["approved"] else "❌ Rejected")
-
-
-# ─── Main Content ─────────────────────────────────────────────────────────────
-st.markdown('<p class="main-title">Planner Multi-Agent System</p>', unsafe_allow_html=True)
-st.markdown(
-    '<p class="subtitle">'
-    'An autonomous AI pipeline that plans, executes, and verifies research goals '
-    'using three specialized agents.'
-    '</p>',
-    unsafe_allow_html=True,
+# Goal Input Field
+user_goal = st.text_area(
+    label="Goal Input Area",
+    value=default_query,
+    placeholder="Ask anything...",
+    height=120,
+    label_visibility="collapsed"
 )
 
-st.markdown("")
+# Columns to align button right
+col_left, col_right = st.columns([5, 1.2])
+with col_right:
+    submit_btn = st.button("Get Answer", type="primary", use_container_width=True)
 
-# ─── Input Section ────────────────────────────────────────────────────────────
-with st.container():
-    goal = st.text_area(
-        "🎯 Enter your research goal",
-        value="Research and summarise the top 3 trends in agriculture for 2025",
-        height=100,
-        placeholder="e.g., Research the latest breakthroughs in quantum computing...",
-    )
+# Render Suggestion Chips
+render_suggestion_chips()
+st.markdown('</div>', unsafe_allow_html=True)
 
-    run_btn = st.button("🚀 Run Multi-Agent", type="primary", use_container_width=True)
-
-# ─── Execution ────────────────────────────────────────────────────────────────
-if run_btn:
-    if not goal.strip():
-        st.error("⚠️ Please enter a goal before running.")
+# ─── Main Execution Workflow ──────────────────────────────────────────────────
+if submit_btn or default_query:
+    query_to_run = user_goal.strip() if submit_btn else default_query.strip()
+    
+    if not query_to_run:
+        st.error("⚠️ Please enter a question or query.")
         st.stop()
-
+        
+    st.markdown('<div class="spacer-lg"></div>', unsafe_allow_html=True)
+    
+    # Progress placeholders
+    progress_box = st.empty()
+    
     try:
-        with st.spinner("🔄 Agents are working... This may take 1–2 minutes."):
-            final_state = run_workflow(goal.strip())
-            st.session_state["final_state"] = final_state
-
-    except RuntimeError as e:
-        st.error(f"❌ Configuration Error: {e}")
-        st.info("💡 Make sure `GROQ_API_KEY` is set in your `.env` file.")
-        st.stop()
-    except Exception as e:
-        st.error(f"❌ Unexpected Error: {e}")
-        st.stop()
-
-    # ─── Results Display ──────────────────────────────────────────────────
-    st.divider()
-
-    # Verification Status
-    if final_state["approved"]:
-        st.success(
-            f"✅ **Verified & Approved** after {final_state['iterations']} "
-            f"iteration(s)"
-        )
-    else:
-        st.warning(
-            f"⚠️ **Not fully approved** after {final_state['iterations']} "
-            f"iteration(s)"
-        )
-
-    # Metrics row
-    col1, col2, col3 = st.columns(3)
-    col1.metric("📋 Tasks Generated", len(final_state["tasks"]))
-    col2.metric("🔄 Iterations", final_state["iterations"])
-    col3.metric("✅ Approved", "Yes" if final_state["approved"] else "No")
-
-    st.markdown("")
-
-    # ─── Planner Output ──────────────────────────────────────────────────
-    st.markdown("### 📋 Planner — Generated Tasks")
-    for i, task in enumerate(final_state["tasks"], 1):
-        st.markdown(f"**{i}.** {task}")
-
-    st.markdown("")
-
-    # ─── Executor Output ─────────────────────────────────────────────────
-    st.markdown("### ⚙️ Executor — Task Results")
-    for i, (task, result) in enumerate(
-        zip(final_state["tasks"], final_state["results"]), 1
-    ):
-        with st.expander(f"Task {i}: {task[:80]}{'...' if len(task) > 80 else ''}"):
-            st.markdown(result)
-
-    st.markdown("")
-
-    # ─── Verifier Output ─────────────────────────────────────────────────
-    st.markdown("### ✅ Verifier — Quality Assessment")
-
-    if final_state["critique"]:
-        st.warning(f"**Critique:** {final_state['critique']}")
-    else:
-        st.success("No critique — results met quality standards.")
-
-    st.markdown("")
-
-    # ─── Final Combined Response ─────────────────────────────────────────
-    st.markdown("### 📝 Final Combined Response")
-    with st.container():
-        combined = "\n\n---\n\n".join(
-            f"**Task {i}: {t}**\n\n{r}"
-            for i, (t, r) in enumerate(
-                zip(final_state["tasks"], final_state["results"]), 1
+        final_state = None
+        # Stream workflow generator
+        for status_msg, progress_pct, state_so_far in run_workflow_generator(query_to_run):
+            with progress_box.container():
+                # Map progress status index
+                if "Understanding" in status_msg:
+                    step_idx = 1
+                elif "Planning" in status_msg:
+                    step_idx = 1
+                elif "Researching" in status_msg:
+                    step_idx = 2
+                elif "Generating" in status_msg:
+                    step_idx = 2
+                elif "Verifying" in status_msg:
+                    step_idx = 3
+                else:
+                    step_idx = 4
+                render_progress_view(step_idx)
+            # Small delay for smooth UI update
+            time.sleep(0.3)
+            
+            if state_so_far:
+                final_state = state_so_far
+                
+        # Clear progress bar
+        progress_box.empty()
+        
+        # Display Results
+        if final_state:
+            st.markdown('<div class="result-card fade-in">', unsafe_allow_html=True)
+            
+            # Header actions: Title, Download & Share
+            st.markdown(
+                """
+                <div class="result-header">
+                    <div class="result-title">
+                        <span class="result-title-icon">✨</span>
+                        Final Answer
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
             )
-        )
-        st.markdown(combined)
+            
+            # Action Buttons Row
+            btn_col1, btn_col2, btn_col3 = st.columns([6, 1, 1])
+            with btn_col2:
+                combined_text = "\n\n".join(
+                    f"### Task: {t}\n{r}" 
+                    for t, r in zip(final_state["tasks"], final_state["results"])
+                )
+                st.download_button(
+                    label="📥 Download",
+                    data=combined_text,
+                    file_name="research_results.txt",
+                    mime="text/plain",
+                    use_container_width=True
+                )
+            with btn_col3:
+                if st.button("🔗 Share", use_container_width=True):
+                    st.toast("Link copied to clipboard! (Simulated)")
+            
+            st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+            
+            # Extract summary if exists
+            summary = ""
+            if len(final_state["results"]) > 0:
+                summary = final_state["results"][-1]
+                
+            # Render Summary Highlight
+            st.markdown(
+                f"""
+                <div class="summary-card">
+                    <div class="summary-label">Key Summary</div>
+                    <div class="summary-text">{summary[:400]}...</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+            
+            # Display detailed numbered sections
+            st.markdown('<div class="response-body">', unsafe_allow_html=True)
+            for i, (task, result) in enumerate(zip(final_state["tasks"], final_state["results"]), 1):
+                st.markdown(
+                    f"""
+                    <div class="section-block">
+                        <div class="section-number">{i:02d}</div>
+                        <div class="section-content">
+                            <h3>{task}</h3>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+                st.markdown(result)
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            # Quality assessment badge
+            st.markdown('<div class="spacer-md"></div>', unsafe_allow_html=True)
+            if final_state["approved"]:
+                st.success(f"Verified & Approved by AI quality guardrails (Score: Met standard | Iterations: {final_state['iterations']}).")
+            else:
+                st.warning(f"Response compiled after maximum refinement cycles ({final_state['iterations']} iterations).")
+                
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+    except Exception as e:
+        progress_box.empty()
+        st.error(f"An unexpected error occurred during processing: {e}")
+        st.info("Please verify your GROQ_API_KEY environment variable is configured correctly.")
 
-# ─── Footer ───────────────────────────────────────────────────────────────────
-st.markdown("")
-st.divider()
-st.markdown(
-    "<div style='text-align:center; color:#64748b; font-size:0.85rem;'>"
-    "Built with LangGraph · Groq · LangChain · Streamlit"
-    "</div>",
-    unsafe_allow_html=True,
-)
+# Footer & Disclaimer
+render_disclaimer()
+render_footer()

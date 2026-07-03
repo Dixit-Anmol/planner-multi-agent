@@ -34,6 +34,8 @@ render_navbar()
 # If user clicked a suggestion chip, prefill the query
 query_params = st.query_params
 default_query = query_params.get("query", "")
+if default_query:
+    st.query_params.clear()
 
 # ─── Hero Section ─────────────────────────────────────────────────────────────
 render_hero()

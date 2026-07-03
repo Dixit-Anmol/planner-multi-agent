@@ -2,6 +2,7 @@
 Executor Agent — executes tasks with optional DuckDuckGo web search.
 """
 
+import time
 from langchain_core.messages import SystemMessage, HumanMessage
 from agents.state import AgentState, get_llm, get_search
 
@@ -20,6 +21,9 @@ def executor(state: AgentState) -> AgentState:
         )
 
     for task in state["tasks"]:
+        # Sleep to respect Groq rate limits
+        time.sleep(1)
+
         system = (
             f"You are an execution agent. Complete the task thoroughly. "
             f"Use web search if you need current information. {critique_ctx}"
@@ -28,12 +32,12 @@ def executor(state: AgentState) -> AgentState:
         # Try web search for research tasks
         search_ctx = ""
         try:
-            search_result = search_tool.run(task[:100])
+            search_result = search_tool.invoke(task[:100])
             search_ctx = (
                 f"\n\nWeb search result for context: \n{search_result[:800]}"
             )
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[Executor] Search failed for '{task[:30]}...': {e}")
 
         messages = [
             SystemMessage(content=system),

@@ -81,6 +81,10 @@ def executor(state: AgentState) -> AgentState:
         )
 
     for task in state["tasks"]:
+        # Sleep to respect Groq rate limits
+        import time
+        time.sleep(1)
+
         system = (
             f"You are an execution agent. Complete the task thoroughly. "
             f"Use web search if you need current information. {critique_ctx}"
@@ -89,12 +93,12 @@ def executor(state: AgentState) -> AgentState:
         # Try web search for research tasks
         search_ctx = ""
         try:
-            search_result = search.run(task[:100])
+            search_result = search.invoke(task[:100])
             search_ctx = (
                 f"\n\nWeb search result for context: \n{search_result[:800]}"
             )
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[Executor] Search failed for '{task[:30]}...': {e}")
 
         messages = [
             SystemMessage(content=system),

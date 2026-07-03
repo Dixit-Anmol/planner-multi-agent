@@ -37,6 +37,25 @@ def render_hero():
         unsafe_allow_html=True
     )
 
+def render_suggestion_chips():
+    """Renders the suggestion chips below the text area and returns the clicked value."""
+    st.markdown('<div class="spacer-sm"></div>', unsafe_allow_html=True)
+    
+    # Render pure visual chips as suggested in the prompt and screenshot
+    st.markdown(
+        """
+        <div class="chips-row fade-in delay-1">
+            <span class="chip-label">Try asking about:</span>
+            <a class="chip" href="?query=AI+in+healthcare">AI in healthcare</a>
+            <a class="chip" href="?query=Future+of+renewable+energy">Future of renewable energy</a>
+            <a class="chip" href="?query=Space+exploration">Space exploration</a>
+            <a class="chip" href="?query=Stock+market+outlook">Stock market outlook</a>
+            <a class="chip" href="?query=Digital+marketing+trends">Digital marketing trends</a>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
 def render_progress_view(step: int):
     """
     Renders progress updates based on workflow state.

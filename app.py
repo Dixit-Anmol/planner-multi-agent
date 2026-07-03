@@ -10,6 +10,7 @@ from styles import get_css
 from components import (
     render_navbar,
     render_hero,
+    render_suggestion_chips,
     render_progress_view,
     render_disclaimer,
     render_footer,
@@ -35,6 +36,7 @@ render_navbar()
 query_params = st.query_params
 default_query = query_params.get("query", "")
 if default_query:
+    st.session_state["last_run_query"] = default_query
     st.query_params.clear()
 
 # ─── Hero Section ─────────────────────────────────────────────────────────────
@@ -57,6 +59,8 @@ col_left, col_right = st.columns([5, 1.2])
 with col_right:
     submit_btn = st.button("Get Answer", type="primary", use_container_width=True)
 
+# Render Suggestion Chips
+render_suggestion_chips()
 st.markdown('</div>', unsafe_allow_html=True)
 
 # Track if we should run the search

@@ -46,11 +46,11 @@ def render_suggestion_chips():
         """
         <div class="chips-row fade-in delay-1">
             <span class="chip-label">Try asking about:</span>
-            <a class="chip" href="?query=AI+in+healthcare">AI in healthcare</a>
-            <a class="chip" href="?query=Future+of+renewable+energy">Future of renewable energy</a>
-            <a class="chip" href="?query=Space+exploration">Space exploration</a>
-            <a class="chip" href="?query=Stock+market+outlook">Stock market outlook</a>
-            <a class="chip" href="?query=Digital+marketing+trends">Digital marketing trends</a>
+            <a class="chip" href="?query=AI+in+healthcare" target="_self">AI in healthcare</a>
+            <a class="chip" href="?query=Future+of+renewable+energy" target="_self">Future of renewable energy</a>
+            <a class="chip" href="?query=Space+exploration" target="_self">Space exploration</a>
+            <a class="chip" href="?query=Stock+market+outlook" target="_self">Stock market outlook</a>
+            <a class="chip" href="?query=Digital+marketing+trends" target="_self">Digital marketing trends</a>
         </div>
         """,
         unsafe_allow_html=True

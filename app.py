@@ -33,9 +33,13 @@ render_navbar()
 
 # ─── Query Param Handling ─────────────────────────────────────────────────────
 # If user clicked a suggestion chip, prefill the query
+if "search_query" not in st.session_state:
+    st.session_state["search_query"] = ""
+
 query_params = st.query_params
 default_query = query_params.get("query", "")
 if default_query:
+    st.session_state["search_query"] = default_query
     st.session_state["last_run_query"] = default_query
     st.query_params.clear()
 
@@ -49,7 +53,7 @@ st.markdown('<div class="input-label">What would you like to know?</div>', unsaf
 # Goal Input Field (using text_input so pressing Enter triggers search)
 user_goal = st.text_input(
     label="Goal Input Area",
-    value=default_query,
+    key="search_query",
     placeholder="Ask anything...",
     label_visibility="collapsed"
 )

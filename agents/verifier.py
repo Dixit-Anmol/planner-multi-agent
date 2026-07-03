@@ -6,36 +6,33 @@ import json
 from langchain_core.messages import SystemMessage, HumanMessage
 from agents.state import AgentState, get_llm
 
+_VERIFIER_PROMPT = (
+    "Rate these results for the given goal. "
+    "Score 0.0-1.0 (completeness, accuracy, clarity). "
+    'Respond ONLY as JSON: {"score":0.9,"approved":true,"critique":"..."}'
+)
+
 
 def verifier(state: AgentState) -> AgentState:
-    """Evaluates the quality of results using a scoring rubric."""
-    # Safety net — approve after 3 iterations regardless
-    if state["iterations"] >= 3:
+    """Evaluates quality using only task titles and short summaries."""
+    # Safety net — approve after 2 iterations to save tokens
+    if state["iterations"] >= 2:
         print("[Verifier] Max iterations reached — force approving.")
-        return {**state, "approved": True}
+        # Build summary from results
+        summary = _build_summary(state)
+        return {**state, "approved": True, "summary": summary}
 
     llm = get_llm()
 
-    combined_results = "\n\n".join(
-        f"Task {i+1}: {t}\nResult: {r}"
-        for i, (t, r) in enumerate(zip(state["tasks"], state["results"]))
+    # Send only task titles + first 100 chars of each result (not full output)
+    condensed = "\n".join(
+        f"- {t}: {r[:100]}..."
+        for t, r in zip(state["tasks"], state["results"])
     )
 
-    system = """You are a quality verifier. Evaluate the results against the
-original goal using this rubric:
-- Completeness: Does it fully address the goal? (0-0.4)
-- Accuracy:     Is the information correct and specific? (0-0.3)
-- Clarity:      Is it well-structured and clear? (0-0.3)
-Sum the scores for a total between 0.0 and 1.0.
-Respond ONLY as JSON: {"score":0.9, "approved": true, "critique": "..."}"""
-
     messages = [
-        SystemMessage(content=system),
-        HumanMessage(
-            content=(
-                f"Original goal: {state['goal']}\n\nResults:\n{combined_results}"
-            )
-        ),
+        SystemMessage(content=_VERIFIER_PROMPT),
+        HumanMessage(content=f"Goal: {state['goal']}\n\nResults:\n{condensed}"),
     ]
     raw = llm.invoke(messages).content.strip()
 
@@ -52,7 +49,18 @@ Respond ONLY as JSON: {"score":0.9, "approved": true, "critique": "..."}"""
     if not approved:
         print(f"  Critique: {critique}")
 
-    return {**state, "approved": approved, "critique": critique}
+    # Build summary on approval
+    summary = _build_summary(state) if approved else state.get("summary", "")
+
+    return {**state, "approved": approved, "critique": critique, "summary": summary}
+
+
+def _build_summary(state: AgentState) -> str:
+    """Combine task results into a single clean response."""
+    parts = []
+    for task, result in zip(state["tasks"], state["results"]):
+        parts.append(f"### {task}\n{result}")
+    return "\n\n".join(parts)
 
 
 def route_after_verify(state: AgentState) -> str:

@@ -5,11 +5,12 @@ Planner Multi-Agent System
 A LangGraph-based multi-agent system that uses a Planner → Executor → Verifier
 loop to break down goals, execute tasks with web search, and verify quality.
 
-Uses Groq's Llama 3.1 LLM and DuckDuckGo for web search.
+Token-optimized for Groq free-tier reliability.
 """
 
 import os
 import json
+import time
 from typing import TypedDict, List
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph, END
@@ -25,9 +26,10 @@ if not GROQ_API_KEY:
     raise RuntimeError("GROQ_API_KEY environment variable is not set.")
 
 llm = ChatGroq(
-    temperature=0,
+    temperature=0.3,
     model_name="llama-3.1-8b-instant",
     groq_api_key=GROQ_API_KEY,
+    max_tokens=512,
 )
 
 search = DuckDuckGoSearchRun()
@@ -38,6 +40,7 @@ class AgentState(TypedDict):
     goal: str
     tasks: List[str]
     results: List[str]
+    summary: str
     critique: str
     approved: bool
     iterations: int
@@ -45,22 +48,25 @@ class AgentState(TypedDict):
 
 # ─── Agent 1: Planner ────────────────────────────────────────────────────────
 def planner(state: AgentState) -> AgentState:
-    """Breaks the user's goal into at most 5 concrete, actionable tasks."""
-    system = """You are a planning agent. Break the user's goal into
-at most 5 concrete, actionable tasks. Respond ONLY with a
-valid JSON array of strings. No preamble, no markdown."""
+    """Breaks the user's goal into at most 3 high-level tasks."""
+    system = (
+        "Break the goal into 1-3 high-level tasks. "
+        "For simple questions, use just 1 task. "
+        "Respond ONLY with a JSON array of strings."
+    )
 
     messages = [
         SystemMessage(content=system),
-        HumanMessage(content=f"Goal: {state['goal']}"),
+        HumanMessage(content=state["goal"]),
     ]
     response = llm.invoke(messages).content.strip()
 
     try:
         clean = response.replace("```json", "").replace("```", "").strip()
         tasks = json.loads(clean)
+        tasks = tasks[:3]  # Enforce max 3 tasks
     except json.JSONDecodeError:
-        tasks = [response]  # fallback: treat whole response as one task
+        tasks = [response]
 
     print(f"\n[Planner] Generated {len(tasks)} tasks:")
     for i, t in enumerate(tasks):
@@ -70,39 +76,32 @@ valid JSON array of strings. No preamble, no markdown."""
 
 
 # ─── Agent 2: Executor ───────────────────────────────────────────────────────
+_EXEC_PROMPT = (
+    "Answer the task in 150-200 words. Be concise and informative. "
+    "Do not repeat information already covered."
+)
+
 def executor(state: AgentState) -> AgentState:
-    """Executes each task, optionally using DuckDuckGo web search for context."""
+    """Executes each task with concise responses and minimal search context."""
     results = []
     critique_ctx = ""
     if state["critique"]:
-        critique_ctx = (
-            f"\n\nYour previous attempt was rejected. "
-            f"Previous critique: {state['critique']}"
-        )
+        critique_ctx = f" Improve based on: {state['critique']}"
 
     for task in state["tasks"]:
-        # Sleep to respect Groq rate limits
-        import time
-        time.sleep(1)
+        time.sleep(2)  # Rate-limit protection
 
-        system = (
-            f"You are an execution agent. Complete the task thoroughly. "
-            f"Use web search if you need current information. {critique_ctx}"
-        )
-
-        # Try web search for research tasks
+        # Try web search — truncate to 400 chars
         search_ctx = ""
         try:
-            search_result = search.invoke(task[:100])
-            search_ctx = (
-                f"\n\nWeb search result for context: \n{search_result[:800]}"
-            )
+            search_result = search.invoke(task[:80])
+            search_ctx = f"\n\nContext: {search_result[:400]}"
         except Exception as e:
-            print(f"[Executor] Search failed for '{task[:30]}...': {e}")
+            print(f"[Executor] Search failed: {e}")
 
         messages = [
-            SystemMessage(content=system),
-            HumanMessage(content=f"Task: {task}{search_ctx}"),
+            SystemMessage(content=_EXEC_PROMPT + critique_ctx),
+            HumanMessage(content=f"{task}{search_ctx}"),
         ]
 
         result = llm.invoke(messages).content
@@ -114,33 +113,28 @@ def executor(state: AgentState) -> AgentState:
 
 
 # ─── Agent 3: Verifier (LLM-as-a-Judge) ──────────────────────────────────────
-def verifier(state: AgentState) -> AgentState:
-    """Evaluates the quality of results using a scoring rubric."""
-    # Safety net — approve after 3 iterations regardless
-    if state["iterations"] >= 3:
-        print("[Verifier] Max iterations reached — force approving.")
-        return {**state, "approved": True}
+_VERIFIER_PROMPT = (
+    "Rate these results for the given goal. "
+    "Score 0.0-1.0 (completeness, accuracy, clarity). "
+    'Respond ONLY as JSON: {"score":0.9,"approved":true,"critique":"..."}'
+)
 
-    combined_results = "\n\n".join(
-        f"Task {i+1}: {t}\nResult: {r}"
-        for i, (t, r) in enumerate(zip(state["tasks"], state["results"]))
+def verifier(state: AgentState) -> AgentState:
+    """Evaluates quality using only task titles and short summaries."""
+    if state["iterations"] >= 2:
+        print("[Verifier] Max iterations reached — force approving.")
+        summary = _build_summary(state)
+        return {**state, "approved": True, "summary": summary}
+
+    # Send only task titles + first 100 chars of each result
+    condensed = "\n".join(
+        f"- {t}: {r[:100]}..."
+        for t, r in zip(state["tasks"], state["results"])
     )
 
-    system = """You are a quality verifier. Evaluate the results against the
-original goal using this rubric:
-- Completeness: Does it fully address the goal? (0-0.4)
-- Accuracy:     Is the information correct and specific? (0-0.3)
-- Clarity:      Is it well-structured and clear? (0-0.3)
-Sum the scores for a total between 0.0 and 1.0.
-Respond ONLY as JSON: {"score":0.9, "approved": true, "critique": "..."}"""
-
     messages = [
-        SystemMessage(content=system),
-        HumanMessage(
-            content=(
-                f"Original goal: {state['goal']}\n\nResults:\n{combined_results}"
-            )
-        ),
+        SystemMessage(content=_VERIFIER_PROMPT),
+        HumanMessage(content=f"Goal: {state['goal']}\n\nResults:\n{condensed}"),
     ]
     raw = llm.invoke(messages).content.strip()
 
@@ -157,7 +151,16 @@ Respond ONLY as JSON: {"score":0.9, "approved": true, "critique": "..."}"""
     if not approved:
         print(f"  Critique: {critique}")
 
-    return {**state, "approved": approved, "critique": critique}
+    summary = _build_summary(state) if approved else state.get("summary", "")
+    return {**state, "approved": approved, "critique": critique, "summary": summary}
+
+
+def _build_summary(state: AgentState) -> str:
+    """Combine task results into a single clean response."""
+    parts = []
+    for task, result in zip(state["tasks"], state["results"]):
+        parts.append(f"### {task}\n{result}")
+    return "\n\n".join(parts)
 
 
 def route_after_verify(state: AgentState) -> str:
@@ -188,6 +191,7 @@ def main():
         "goal": "Research and summarise the top 3 trends in agriculture for 2025",
         "tasks": [],
         "results": [],
+        "summary": "",
         "critique": "",
         "approved": False,
         "iterations": 0,

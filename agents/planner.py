@@ -8,24 +8,28 @@ from agents.state import AgentState, get_llm
 
 
 def planner(state: AgentState) -> AgentState:
-    """Breaks the user's goal into at most 5 concrete, actionable tasks."""
+    """Breaks the user's goal into at most 3 high-level tasks."""
     llm = get_llm()
 
-    system = """You are a planning agent. Break the user's goal into
-at most 5 concrete, actionable tasks. Respond ONLY with a
-valid JSON array of strings. No preamble, no markdown."""
+    system = (
+        "Break the goal into 1-3 high-level tasks. "
+        "For simple questions, use just 1 task. "
+        "Respond ONLY with a JSON array of strings."
+    )
 
     messages = [
         SystemMessage(content=system),
-        HumanMessage(content=f"Goal: {state['goal']}"),
+        HumanMessage(content=state["goal"]),
     ]
     response = llm.invoke(messages).content.strip()
 
     try:
         clean = response.replace("```json", "").replace("```", "").strip()
         tasks = json.loads(clean)
+        # Enforce max 3 tasks
+        tasks = tasks[:3]
     except json.JSONDecodeError:
-        tasks = [response]  # fallback: treat whole response as one task
+        tasks = [response]
 
     print(f"\n[Planner] Generated {len(tasks)} tasks:")
     for i, t in enumerate(tasks):

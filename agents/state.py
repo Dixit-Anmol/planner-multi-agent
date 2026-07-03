@@ -16,6 +16,7 @@ class AgentState(TypedDict):
     goal: str
     tasks: List[str]
     results: List[str]
+    summary: str
     critique: str
     approved: bool
     iterations: int
@@ -27,16 +28,17 @@ _search = None
 
 
 def get_llm() -> ChatGroq:
-    """Return a cached ChatGroq instance."""
+    """Return a cached ChatGroq instance with token-optimized settings."""
     global _llm
     if _llm is None:
         api_key = os.environ.get("GROQ_API_KEY", "")
         if not api_key:
             raise RuntimeError("GROQ_API_KEY environment variable is not set.")
         _llm = ChatGroq(
-            temperature=0,
+            temperature=0.3,
             model_name="llama-3.1-8b-instant",
             groq_api_key=api_key,
+            max_tokens=512,
         )
     return _llm
 

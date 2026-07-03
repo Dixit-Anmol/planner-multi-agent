@@ -145,30 +145,6 @@ header {visibility: hidden;}
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   SUGGESTION CHIPS
-   ═══════════════════════════════════════════════════════════════════ */
-.chips-row {
-    display: flex; flex-wrap: wrap; gap: 0.5rem;
-    margin-top: 1rem; justify-content: flex-start;
-}
-.chip-label {
-    font-size: 0.8rem; color: #94a3b8; font-weight: 500;
-    margin-right: 0.3rem; display: flex; align-items: center;
-}
-.chip {
-    display: inline-flex; align-items: center;
-    padding: 0.4rem 0.9rem; border-radius: 20px;
-    border: 1px solid #e2e8f0; background: #fff;
-    font-size: 0.82rem; color: #475569; font-weight: 500;
-    cursor: pointer; transition: all 0.2s;
-    text-decoration: none;
-}
-.chip:hover {
-    border-color: #F97316; color: #F97316;
-    background: #FFF7ED;
-}
-
-/* ═══════════════════════════════════════════════════════════════════
    ORANGE PRIMARY BUTTON
    ═══════════════════════════════════════════════════════════════════ */
 div[data-testid="stButton"] > button[kind="primary"] {
